@@ -151,9 +151,10 @@ public class Nameserver implements INameserverCli, Runnable{
 	@Override
 	@Command
 	public String exit() throws IOException {
+		UnicastRemoteObject.unexportObject(myRemote, true);
 		if(exported != null){
 			//NOTE: exported will only be set if an object has been bound -> root-nameserver
-			UnicastRemoteObject.unexportObject(myRemote, true);
+			//UnicastRemoteObject.unexportObject(myRemote, true);
 			try {
 				registry.unbind(config.getString("root_id"));
 			} catch (NotBoundException e) {
