@@ -1,0 +1,22 @@
+Testsuite: test.ScenarioTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6,661 sec
+------------- Standard Output ---------------
+00_login_test.txt
+16:35:31.616		alice.vienna.at> !login alice.vienna.at 12345
+16:35:31.622		alice.vienna.at: Successfully logged in.
+16:35:32.159		alice.vienna.at> !list
+16:35:32.162		alice.vienna.at:
+16:35:32.162		Online users:
+16:35:32.162		alice.vienna.at
+16:35:32.667		chatserver> !users
+16:35:32.668		chatserver:
+16:35:32.668		alice.vienna.at online
+16:35:32.668		bill.de offline
+16:35:33.168		chatserver> !exit
+16:35:33.168		chatserver: Shutting down server...
+16:35:33.668		alice.vienna.at> !exit
+16:35:33.669		alice.vienna.at: Shutting down client...
+################################################################################
+------------- ---------------- ---------------
+
+Testcase: 00_login_test took 6,638 sec

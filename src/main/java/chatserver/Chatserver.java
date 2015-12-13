@@ -85,7 +85,7 @@ public class Chatserver implements IChatserverCli, Runnable {
 			while(running){
 				try {
 					Socket sock = tcp.accept();
-					model.startTCPThread(new TCPListener(sock,model));
+					model.startTCPThread(new TCPListener(sock,model,config.getString("registry.host"),config.getInt("registry.port"),config.getString("root_id")));
 				} catch (IOException e) {
 					if(tcp.isClosed()){
 						running = false;

@@ -8,7 +8,14 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.rmi.NotBoundException;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 
+import nameserver.INameserver;
+import nameserver.exceptions.AlreadyRegisteredException;
+import nameserver.exceptions.InvalidDomainException;
 import model.ServerInfo;
 import model.User;
 
@@ -24,11 +31,15 @@ public class TCPListener implements Runnable {
 	private ServerInfo info;
 	private User user;
 	
+	private String regLoc;
+	private int    regPort;
+	private String rootID;
+	
 	/**
 	 * 
 	 * @param tcpSocket - a connected (and open!) {@code Socket}
 	 */
-	public TCPListener(Socket tcpSocket, ServerInfo info){
+	public TCPListener(Socket tcpSocket, ServerInfo info, String regLoc, int regPort, String rootID){
 		if( (tcpSocket == null) || (tcpSocket.isClosed()) ){
 			throw new IllegalArgumentException("TCP-Port has to be connected and open!");
 		}else{
@@ -37,6 +48,10 @@ public class TCPListener implements Runnable {
 		
 		this.info = info;
 		user = null;
+		
+		this.regLoc = regLoc;
+		this.regPort = regPort;
+		this.rootID = rootID;
 	}
 	
 	/* (non-Javadoc)
@@ -120,7 +135,32 @@ public class TCPListener implements Runnable {
 					retstring = "Wrong register format -> IP:port";
 					String[] reginfo = command_split[1].split(":");
 					if(reginfo.length == 2){
-						user.register(command_split[1]);
+						retstring = "contacting server ...";
+						try {
+							Registry registry = LocateRegistry.getRegistry(regLoc,regPort);
+							INameserver server = (INameserver) registry.lookup(rootID);
+							System.out.println("\n -------------- \nSending command to nameserver: " + user.getUsername() + " " + command_split[1]);
+							server.registerUser(user.getUsername(), command_split[1]);
+							user.register(command_split[1]);
+						} catch (RemoteException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (NotBoundException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (AlreadyRegisteredException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						} catch (InvalidDomainException e) {
+							// TODO Auto-generated catch block
+							e.printStackTrace();
+						}
+						
+						/*
+						 * Code for Lab1
+						 * user.register(command_split[1]);
+						 * retstring = "Successfully registered address for " + user.getUsername();
+						 */
 						retstring = "Successfully registered address for " + user.getUsername();
 					}
 				}
