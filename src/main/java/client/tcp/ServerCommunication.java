@@ -100,6 +100,7 @@ public class ServerCommunication implements Runnable{
 		
 		//NOTE: send message
 		listener.send(msg);
+		System.out.println("waiting");
 		
 		//NOTE: get answer (if not a !send)
 		if(wait){

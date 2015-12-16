@@ -230,20 +230,22 @@ public class Client implements IClientCli, Runnable {
 		String msg = "!authenticate";
 		byte[] msgByte = msg.getBytes();
 		byte[] userByte = username.getBytes();
+		byte[] bOfSpace = ("\n").getBytes();
+		
+		challenge = Base64.encode(challenge);
 		msgByte = Base64.encode(msgByte);
 		userByte = Base64.encode(userByte);
-		byte[] bOfSpace = (" ").getBytes();
-		//bOfSpace = Base64.encode(bOfSpace);
+		bOfSpace = Base64.encode(bOfSpace);
 		
 		//NOTE: concat message-string
-		byte[] message = new byte[challenge.length + msgByte.length + userByte.length + bOfSpace.length*2];
+		byte[] message = new byte[challenge.length + msgByte.length + userByte.length ];
 		ByteBuffer bb = ByteBuffer.wrap(message);
 		bb.put(msgByte);
-		bb.put(bOfSpace);
+		//bb.put(bOfSpace);
 		bb.put(userByte);
-		bb.put(bOfSpace);
+		//bb.put(bOfSpace);
 		bb.put(challenge);
-		
+		//message = Base64.encode(message);
 		//NOTE: encrypt message
 		try {
 			Cipher rsaCipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");

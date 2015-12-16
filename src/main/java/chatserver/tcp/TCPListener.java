@@ -52,6 +52,7 @@ public class TCPListener implements Runnable {
 	private SecretKey secretKey;
 	private String privKeyLoc;
 	private String pubKeyLoc;
+	private String shittybit;
 	
 	/**
 	 * 
@@ -74,6 +75,10 @@ public class TCPListener implements Runnable {
 		secretKey = null;
 		this.privKeyLoc = privKeyLoc;
 		this.pubKeyLoc = pubKeyLoc;
+		
+		//NOTE: character for separation of messages
+		char ch = 0;
+		shittybit = String.valueOf(ch) + String.valueOf(ch);
 	}
 	
 	/* (non-Javadoc)
@@ -86,6 +91,23 @@ public class TCPListener implements Runnable {
 		while(running){
 			try {
 				
+				byte[] b = new byte[1024];
+				int len = tcpSocket.getInputStream().read(b);
+				byte[] msg = new byte[len];
+				for(int i=0; i<len; i++){
+					msg[i] = b[i];
+				}
+				//System.out.println(len);
+				try {
+					String message = decodeUserInput(msg);
+					System.out.println(message);
+				} catch (InvalidKeyException | NoSuchAlgorithmException
+						| NoSuchPaddingException | IllegalBlockSizeException
+						| BadPaddingException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				/*
 				reader = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream()));
 				String line = reader.readLine();
 				if(line == null){
@@ -103,8 +125,11 @@ public class TCPListener implements Runnable {
 						sendAnswer(answer);
 					}
 					
-				}
+				}*/
 				
+				if(tcpSocket.isClosed()){
+					running = false;
+				}
 				//reader.close();
 			} catch (IOException e) {
 				if(tcpSocket.isClosed()){
@@ -143,11 +168,17 @@ public class TCPListener implements Runnable {
 		
 		}
 		//byte[] msgByte = msg.getBytes();
+		//NOTE: decode from base64
 		msg = Base64.decode(msg);
-		//System.out.println(msgByte.toString());
+
+		//NOTE: decode cipher-string
 		byte[] plaintext = c.doFinal(msg);
-		//System.out.println(plaintext.toString());
-		return null;
+		
+		//NOTE: decode base64 again
+		plaintext = Base64.decode(plaintext);
+		
+		//NOTE: return value
+		return new String(plaintext);
 	}
 	
 	/**
