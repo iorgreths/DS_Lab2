@@ -4,6 +4,7 @@
 package chatserver.tcp;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
@@ -12,7 +13,19 @@ import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PrivateKey;
 
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
+
+import org.bouncycastle.util.encoders.Base64;
+
+import util.Keys;
 import nameserver.INameserver;
 import nameserver.exceptions.AlreadyRegisteredException;
 import nameserver.exceptions.InvalidDomainException;
@@ -35,11 +48,16 @@ public class TCPListener implements Runnable {
 	private int    regPort;
 	private String rootID;
 	
+	//NOTE: secret-key for connection
+	private SecretKey secretKey;
+	private String privKeyLoc;
+	private String pubKeyLoc;
+	
 	/**
 	 * 
 	 * @param tcpSocket - a connected (and open!) {@code Socket}
 	 */
-	public TCPListener(Socket tcpSocket, ServerInfo info, String regLoc, int regPort, String rootID){
+	public TCPListener(Socket tcpSocket, ServerInfo info, String regLoc, int regPort, String rootID, String privKeyLoc, String pubKeyLoc){
 		if( (tcpSocket == null) || (tcpSocket.isClosed()) ){
 			throw new IllegalArgumentException("TCP-Port has to be connected and open!");
 		}else{
@@ -52,6 +70,10 @@ public class TCPListener implements Runnable {
 		this.regLoc = regLoc;
 		this.regPort = regPort;
 		this.rootID = rootID;
+		
+		secretKey = null;
+		this.privKeyLoc = privKeyLoc;
+		this.pubKeyLoc = pubKeyLoc;
 	}
 	
 	/* (non-Javadoc)
@@ -63,6 +85,7 @@ public class TCPListener implements Runnable {
 		BufferedReader reader;
 		while(running){
 			try {
+				
 				reader = new BufferedReader(new InputStreamReader(tcpSocket.getInputStream()));
 				String line = reader.readLine();
 				if(line == null){
@@ -71,10 +94,15 @@ public class TCPListener implements Runnable {
 						user.setOffline();
 					}
 				}else{
+					//NOTE: decrypt client message
+					
+					
+					//NOTE: compute answer for client
 					String answer = handleUserCommand(line);
 					if(answer != null && answer.length() > 0){
 						sendAnswer(answer);
 					}
+					
 				}
 				
 				//reader.close();
@@ -84,6 +112,42 @@ public class TCPListener implements Runnable {
 				}
 			}
 		}
+	}
+	
+	/**
+	 * 
+	 * @param msg
+	 * @return
+	 * @throws IOException 
+	 * @throws NoSuchPaddingException 
+	 * @throws NoSuchAlgorithmException 
+	 * @throws InvalidKeyException 
+	 * @throws BadPaddingException 
+	 * @throws IllegalBlockSizeException 
+	 */
+	private String decodeUserInput(byte[] msg) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
+		Cipher c;
+		//System.err.println(msg);
+		if(secretKey == null){
+			//NOTE: has to be a new user-connection -> read server-private key
+			File f = new File(privKeyLoc);
+			PrivateKey pk = Keys.readPrivatePEM(f);
+			
+			c = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
+			c.init(Cipher.DECRYPT_MODE, pk);
+			
+		}else{
+			//NOTE: secretkey has been set -> use for communication
+			c = Cipher.getInstance("AES/CTR/NoPadding");
+			c.init(Cipher.DECRYPT_MODE, secretKey);
+		
+		}
+		//byte[] msgByte = msg.getBytes();
+		msg = Base64.decode(msg);
+		//System.out.println(msgByte.toString());
+		byte[] plaintext = c.doFinal(msg);
+		//System.out.println(plaintext.toString());
+		return null;
 	}
 	
 	/**
@@ -139,21 +203,18 @@ public class TCPListener implements Runnable {
 						try {
 							Registry registry = LocateRegistry.getRegistry(regLoc,regPort);
 							INameserver server = (INameserver) registry.lookup(rootID);
-							System.out.println("\n -------------- \nSending command to nameserver: " + user.getUsername() + " " + command_split[1]);
+							//System.out.println("\n -------------- \nSending command to nameserver: " + user.getUsername() + " " + command_split[1]);
 							server.registerUser(user.getUsername(), command_split[1]);
 							user.register(command_split[1]);
+							retstring = "Successfully registered address for " + user.getUsername();
 						} catch (RemoteException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							retstring = "[Nameserver Error] Failed to register user! Shit happens...";
 						} catch (NotBoundException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							retstring = "Necessary domains not bound!";
 						} catch (AlreadyRegisteredException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							retstring = "User is already registered!";
 						} catch (InvalidDomainException e) {
-							// TODO Auto-generated catch block
-							e.printStackTrace();
+							retstring = "User does not exist in this domain!";
 						}
 						
 						/*
@@ -161,19 +222,46 @@ public class TCPListener implements Runnable {
 						 * user.register(command_split[1]);
 						 * retstring = "Successfully registered address for " + user.getUsername();
 						 */
-						retstring = "Successfully registered address for " + user.getUsername();
 					}
 				}
 				break;
 			case "!lookup":
 				retstring = "Unknown command";
 				if(command_split.length == 2){
-					User u = info.getUser(command_split[1]);
+					//NOTE: implementation for lab2
+					Registry registry;
+					try {
+						registry = LocateRegistry.getRegistry(regLoc,regPort);
+						INameserver server = (INameserver) registry.lookup(rootID);
+						
+						String user = command_split[1];
+						while(user.contains(".")){
+							//NOTE: look for server
+							String zone = user.substring(user.lastIndexOf(".")+1);
+							user = user.substring(0,user.lastIndexOf("."));
+							//System.out.println("\n\n\n=======\nZONE="+zone+"\n\n");
+							server = (INameserver) server.getNameserver(zone);
+						}
+						
+						//NOTE: look for user
+						retstring = server.lookup(user);
+						
+					} catch (RemoteException e) {
+						retstring = "[Nameserver Error] Failed to register user! Shit happens...";
+					} catch (NotBoundException e) {
+						retstring = "User not bound!";
+					}
+					
+					
+					
+					/* Implementation for Lab1
+					 * 
+					 * User u = info.getUser(command_split[1]);
 					if(u != null && u.isRegistered()){
 						retstring = u.getRegisteredAddress();
 					}else{
 						retstring = "User has not been registered.";
-					}
+					}*/
 				}
 				break;
 			default:

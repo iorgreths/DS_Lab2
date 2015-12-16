@@ -1,5 +1,6 @@
 package client;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
@@ -7,7 +8,19 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.ByteBuffer;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.SecureRandom;
 import java.util.LinkedList;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.NoSuchPaddingException;
+
+import org.bouncycastle.util.encoders.Base64;
 
 import model.ClientInfo;
 import model.ClientInfoImpl;
@@ -17,6 +30,7 @@ import client.tcp.ServerCommunication;
 import client.tcp.ctc.ClientCommunication;
 import client.udp.ServerCommunicationUDP;
 import util.Config;
+import util.Keys;
 
 public class Client implements IClientCli, Runnable {
 
@@ -199,9 +213,65 @@ public class Client implements IClientCli, Runnable {
 	// implement them for the first submission. ---
 
 	@Override
+	@Command
 	public String authenticate(String username) throws IOException {
-		// TODO Auto-generated method stub
-		return null;
+		//NOTE: look for key for user
+		
+		File pkey = new File(config.getString("keys.dir") + "/" + username + ".pem");
+		if(!pkey.exists()){
+			return "No private key for this user!";
+		}
+		//NOTE: generate challenge and encrypt message
+		File f = new File(config.getString("chatserver.key"));
+		PublicKey pk = Keys.readPublicPEM(f);
+		SecureRandom sr = new SecureRandom();
+		byte[] challenge = new byte[32];
+		sr.nextBytes(challenge);
+		String msg = "!authenticate";
+		byte[] msgByte = msg.getBytes();
+		byte[] userByte = username.getBytes();
+		msgByte = Base64.encode(msgByte);
+		userByte = Base64.encode(userByte);
+		byte[] bOfSpace = (" ").getBytes();
+		//bOfSpace = Base64.encode(bOfSpace);
+		
+		//NOTE: concat message-string
+		byte[] message = new byte[challenge.length + msgByte.length + userByte.length + bOfSpace.length*2];
+		ByteBuffer bb = ByteBuffer.wrap(message);
+		bb.put(msgByte);
+		bb.put(bOfSpace);
+		bb.put(userByte);
+		bb.put(bOfSpace);
+		bb.put(challenge);
+		
+		//NOTE: encrypt message
+		try {
+			Cipher rsaCipher = Cipher.getInstance("RSA/NONE/OAEPWithSHA256AndMGF1Padding");
+			rsaCipher.init(Cipher.ENCRYPT_MODE, pk);
+			byte[] cipher = rsaCipher.doFinal(message);
+			//System.out.println(cipher.toString());
+			cipher = Base64.encode(cipher);
+			
+			//NOTE: send message to server
+			//System.err.println(cipher.toString());
+			String answer = model.getServerCommunication().sendAndListen(true, cipher);
+			
+		} catch (NoSuchAlgorithmException e) {
+			return "The requested rsa-cipher is not supported!";
+		} catch (NoSuchPaddingException e) {
+			return "The requested padding for the rsa-cipher is not supported!";
+		} catch (IllegalBlockSizeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (InvalidKeyException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return "ok";
 	}
 
 }

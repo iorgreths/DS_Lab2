@@ -78,14 +78,30 @@ public class NameserverRemote implements INameserver{
 	@Override
 	public INameserverForChatserver getNameserver(String zone)
 			throws RemoteException {
-		// TODO Auto-generated method stub
-		return null;
+		INameserverForChatserver retval = null;
+		for(Entry<String,INameserver> e : myHandledRemotes.entrySet()){
+			if(e.getKey().equals(zone)){
+				retval = e.getValue();
+			}
+		}
+		if(retval == null){
+			throw new RemoteException("No known nameserver for domain '" + zone + "'");
+		}
+		return retval;
 	}
 
 	@Override
 	public String lookup(String username) throws RemoteException {
-		// TODO Auto-generated method stub
-		return null;
+		String retval = null;
+		for(Entry<String,String> e : knownUsers.entrySet()){
+			if(e.getKey().equals(username)){
+				retval = e.getValue();
+			}
+		}
+		if(retval == null){
+			throw new RemoteException("No known user '" + username + "'");
+		}
+		return retval;
 	}
 
 	@Override
@@ -150,7 +166,7 @@ public class NameserverRemote implements INameserver{
 				for(Entry<String,INameserver> e : myHandledRemotes.entrySet()){
 					if(e.getKey().equals(last)){
 						found = true;
-						e.getValue().registerNameserver(domain, nameserver, nameserverForChatserver);
+						e.getValue().registerNameserver(currDom, nameserver, nameserverForChatserver);
 						break;
 					}
 				}
@@ -162,7 +178,7 @@ public class NameserverRemote implements INameserver{
 				//NOTE: i have to add him
 				boolean contains = false;
 				for(Entry<String,INameserver> e : myHandledRemotes.entrySet()){
-					if(e.getKey().equals(domain)){
+					if(e.getKey().equals(currDom)){
 						contains = true;
 						break;
 					}
@@ -179,7 +195,7 @@ public class NameserverRemote implements INameserver{
 				} catch (IOException e) {
 					System.err.println(e);
 				}*/
-				myHandledRemotes.put(domain, nameserver);
+				myHandledRemotes.put(currDom, nameserver);
 				//NameserverRemote server = (NameserverRemote) nameserver;
 				//System.out.println(server.myDomain);
 				//myHandledRemotes.add(server);

@@ -9,6 +9,9 @@ import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.rmi.server.UnicastRemoteObject;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
 
 import nameserver.exceptions.AlreadyRegisteredException;
 import nameserver.exceptions.InvalidDomainException;
@@ -79,11 +82,9 @@ public class Nameserver implements INameserverCli, Runnable{
 					System.err.println(e);
 				}
 			}catch(RemoteException e){
-				//TODO
-				System.err.println(e);
+				writeErrorLog("Could not start registry!");
 			}catch(AlreadyBoundException e){
-				//TODO
-				System.err.println(e);
+				writeErrorLog("Rootserver is already registered!");
 			}
 			
 		}else{
@@ -99,21 +100,22 @@ public class Nameserver implements INameserverCli, Runnable{
 				server.registerNameserver(config.getString("domain"), myself, null);
 				
 			} catch (RemoteException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				writeErrorLog("[Nameserver Error] Failed to register nameserver! Shit happens...");
 			} catch (NotBoundException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				writeErrorLog("The necessary domains are not bound!");
 			} catch (AlreadyRegisteredException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				writeErrorLog("This domain is already registered!");
 			} catch (InvalidDomainException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+				writeErrorLog("The domain is invalid!");
 			}
-			
-			//TODO
 		}
+	}
+	
+	private void writeErrorLog(String errorMessage){
+		DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+		Calendar cal = Calendar.getInstance();
+		String date  = dateFormat.format(cal.getTime()); //2014/08/06 16:00:22
+		System.err.println("[" + date + "] " + errorMessage );
 	}
 	
 	@Override

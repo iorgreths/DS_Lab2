@@ -79,6 +79,45 @@ public class ServerCommunication implements Runnable{
 		
 		return ret;
 	}
+	
+	/**
+	 * Send a command to the server and listen to the servers reply.
+	 * @param wait - is a response from the server expected?
+	 * @param command - the command for the server (encrypted!)
+	 * @return the answer of the server
+	 * @throws IOException
+	 */
+	public String sendAndListen(boolean wait, byte[] command) throws IOException{
+		String ret = "";
+		
+		//NOTE: scraped locking => using a different protocol now
+		//NOTE: lock reading
+		//lock.set(true);
+		
+		//NOTE: prepare message to send
+		//String msg = command;
+		byte[] msg = command;
+		
+		//NOTE: send message
+		listener.send(msg);
+		
+		//NOTE: get answer (if not a !send)
+		if(wait){
+			while(!listener.isMessageAvailable()){
+				//wait for answer
+			}
+			ret = listener.readMessage();
+			
+		}else{
+			ret = "!ok";
+		}
+		
+		//NOTE: release lock
+		//lock.set(false);
+		//tcpThread.interrupt();
+		
+		return ret;
+	}
 
 	@Override
 	public void run() {

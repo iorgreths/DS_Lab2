@@ -68,6 +68,11 @@ public class ServerListener implements Runnable {
 		pw.flush();
 	}
 	
+	public void send(byte[] bytes) throws IOException{
+		tcpSocket.getOutputStream().write(bytes);
+		tcpSocket.getOutputStream().flush();
+	}
+	
 	public void close() throws IOException{
 		tcpSocket.close();
 		tcpThread.interrupt();
