@@ -71,4 +71,8 @@ public interface ServerInfo {
 	 * @param sender - the user which sends the message
 	 */
 	public void sendToAll(String msg, User sender);
+	
+	public void setOnline(String username, boolean online);
+	
+	public boolean isAuthenticated(String user);
 }
