@@ -35,6 +35,7 @@ public class ServerCommunication implements Runnable{
 	private AtomicBoolean lock;
 	
 	private String lastMessage;
+	private Decrypter pubDec;
 	
 	public ServerCommunication(Socket socket, Shell shell){
 		listener = new ServerListener(socket);
@@ -42,6 +43,7 @@ public class ServerCommunication implements Runnable{
 		lock = new AtomicBoolean();
 		lock.set(false);
 		
+		pubDec = null;
 		lastMessage = "";
 	}
 	
@@ -135,16 +137,17 @@ public class ServerCommunication implements Runnable{
 		
 		
 		//NOTE: get answer (if not a !send)
-		if(!command.equals("!send")){
-			while(!listener.isMessageAvailableBYTE()){
-				//wait for answer
-			}
-			ret = new String(dec.decrypt(listener.readMessageBYTE()));
+		while(!listener.isMessageAvailableBYTE()){
+			//wait for answer
+		}
+		ret = new String(dec.decrypt(listener.readMessageBYTE()));
+		/*if(!command.equals("!send")){
+			
 			
 			
 		}else{
-			ret = "!send";
-		}
+			ret = "!ok";
+		}*/
 		
 		//NOTE: release lock
 		//lock.set(false);
@@ -209,9 +212,8 @@ public class ServerCommunication implements Runnable{
 			
 			if(listener.isClosed()){
 				running = false;
-			}
-			
-			if(!lock.get()){
+			}else{
+				
 				try{
 					//NOTE: using a queue for pubmsgs now
 					/*
@@ -219,20 +221,44 @@ public class ServerCommunication implements Runnable{
 						lastMessage = listener.readMessage();
 						shell.writeLine(lastMessage);
 					}*/
-					if(!listener.isQueueEmpty()){
-						lastMessage = listener.getOldestMessage();
-						shell.writeLine(lastMessage);
+					boolean test  =(!listener.isQueueEmptyBYTE()) && (pubDec != null);
+					
+					if( (!listener.isQueueEmptyBYTE()) ){
+						if( pubDec != null ){
+							//System.out.println("READING PUB MSG? " + test);
+							byte[] m = listener.getOldestMessageBYTE();
+							try {
+								m = pubDec.decrypt(m);
+								String temp = new String(m);
+								String msg = "";
+								for(String s : temp.split(" ")){
+									msg += new String(Base64.decode(s)) + " ";
+								}
+								lastMessage = new String(msg);
+							} catch (NoSuchAlgorithmException e) {
+								lastMessage = "[PM] The requested rsa-cipher is not supported!";
+							} catch (NoSuchPaddingException e) {
+								lastMessage = "[PM] The requested padding for the rsa-cipher is not supported!";
+							} catch (IllegalBlockSizeException e) {
+								lastMessage = "[PM] The block-size for the rsa-cipher is illegal!";
+							} catch (BadPaddingException e) {
+								lastMessage = "[PM] Bad padding for encryption!";
+							} catch (InvalidKeyException e) {
+								e.printStackTrace();
+								lastMessage = "[PM] The used key is invalid!";
+							} catch (InvalidAlgorithmParameterException e1) {
+								e1.printStackTrace();
+								lastMessage = "[PM] Got an invalid iv from server!";
+							}
+							shell.writeLine(lastMessage);
+						}
 					}
 				}catch (IOException e) {
 					//no prob
 				}
 				
-				/*try {
-					Thread.sleep(300);
-				} catch (InterruptedException e) {
-					//no problem
-				}*/
 			}
+			
 		}
 	}
 	
@@ -242,6 +268,10 @@ public class ServerCommunication implements Runnable{
 	 */
 	public String lastMsg(){
 		return lastMessage;
+	}
+	
+	public synchronized void setPublicMessageDecrypter(Decrypter d){
+		pubDec = d;
 	}
 	
 }

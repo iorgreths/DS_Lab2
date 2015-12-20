@@ -93,6 +93,16 @@ public class ServerInfoImpl implements ServerInfo {
 		}
 		return user;
 	}
+	
+	@Override
+	public void setOnline(String username, boolean online){
+		User user = users.get(username);
+		if(online){
+			user.setOnline();
+		}else{
+			user.setOffline();
+		}
+	}
 
 	@Override
 	public Map<String, String> getUsers() {
@@ -116,13 +126,24 @@ public class ServerInfoImpl implements ServerInfo {
 
 	@Override
 	public void sendToAll(String msg, User sender) {
+		//System.out.println("SEND TO ALL:" + sender.getUsername() + ":" + msg);
 		for(TCPListener l : listener){
+			//System.out.println("SENDING TO " + l.getUser());
 			try {
 				l.sendMessage(msg, sender);
 			} catch (IOException e) {
 				out.println("Could not send message to all users!\n"+e.getLocalizedMessage());
 			}
 		}
+	}
+	
+	@Override
+	public boolean isAuthenticated(String user){
+		boolean notInUse = false;
+		if(users.get(user).isOnline()){
+			notInUse = true;
+		}
+		return notInUse;
 	}
 
 }

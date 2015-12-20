@@ -60,10 +60,13 @@ public class ServerListener implements Runnable {
 					message = Base64.decode(message);
 					
 					String line = new String(message);
+					//System.out.println("INCOMING " + line);
 					if(line != null && line.startsWith("[SPMP]")){
 						line = line.substring(6);
 						//pubmsg.add(line);
+						System.out.println("ADDING PUBLIC MESSAGE TO BYTE QUEUE");
 						bpubmsg.add(line.getBytes());
+						System.out.println("B-QUEUE EMPTY? " + bpubmsg.isEmpty());
 					}else{
 						//this.message = line;
 						this.bmessage = message;
@@ -145,14 +148,16 @@ public class ServerListener implements Runnable {
 	}
 	
 	public synchronized boolean isMessageAvailableBYTE(){
-		return bmessage != null;
+		return (bmessage != null) || (tcpSocket.isClosed());
 	}
 	
 	public synchronized boolean isQueueEmptyBYTE(){
-		return bpubmsg.isEmpty();
+		//System.out.println("EMPTY BYTE-QUEUE?" + bpubmsg.isEmpty());
+		return (bpubmsg.isEmpty());
 	}
 	
 	public synchronized byte[] getOldestMessageBYTE(){
+		System.out.println("READING BYTES " + bpubmsg.peek());
 		return bpubmsg.poll();
 	}
 	

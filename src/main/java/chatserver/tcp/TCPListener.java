@@ -132,131 +132,142 @@ public class TCPListener implements Runnable {
 					
 					byte[] b = new byte[1024];
 					int len = tcpSocket.getInputStream().read(b);
-					byte[] msg = new byte[len];
-					for(int i=0; i<len; i++){
-						msg[i] = b[i];
-					}
-					if(tcpSocket.isClosed()){
-						running = false;
-						user.setOffline();
-					}else{
-						//NOTE: decrypt client message
-						Decrypter temp;
-						if(aes != null){
-							temp = aes.getValue();
-						}else{
-							File f = new File(privKeyLoc);
-							if(!f.exists()){
-								throw new IOException("No private key for server!");
-							}
-							PrivateKey pk = Keys.readPrivatePEM(f);
-							temp = new Decrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding",pk);
+					if(len > 0){
+						byte[] msg = new byte[len];
+						for(int i=0; i<len; i++){
+							msg[i] = b[i];
 						}
-						
-						String message = null;
-						
-						try {
-							message = decodeUserInput(msg,temp);
-							
-						} catch (InvalidKeyException e1) {
-							//NOTE: -> session must have worn of
-							// -> try private key
-							File f = new File(privKeyLoc);
-							if(!f.exists()){
-								throw new IOException("No private key for server!");
+						if(tcpSocket.isClosed()){
+							running = false;
+							user.setOffline();
+						}else{
+							//NOTE: decrypt client message
+							Decrypter temp;
+							if(aes != null){
+								temp = aes.getValue();
+							}else{
+								File f = new File(privKeyLoc);
+								if(!f.exists()){
+									throw new IOException("No private key for server!");
+								}
+								PrivateKey pk = Keys.readPrivatePEM(f);
+								temp = new Decrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding",pk);
 							}
-							PrivateKey pk = Keys.readPrivatePEM(f);
-							temp = new Decrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding",pk);
-
+							
+							String message = null;
+							
 							try {
 								message = decodeUserInput(msg,temp);
-							} catch (InvalidKeyException | NoSuchAlgorithmException
-									| NoSuchPaddingException
-									| IllegalBlockSizeException
-									| BadPaddingException | InvalidAlgorithmParameterException e) {
-								//NOTE: should only happen if user is malicious
-								writeErrorLog("Possible maliocious input from IP-address " + tcpSocket.getInetAddress());
+								
+							} catch (InvalidKeyException e1) {
+								//NOTE: -> session must have worn of
+								// -> try private key
+								File f = new File(privKeyLoc);
+								if(!f.exists()){
+									throw new IOException("No private key for server!");
+								}
+								PrivateKey pk = Keys.readPrivatePEM(f);
+								temp = new Decrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding",pk);
+
+								try {
+									message = decodeUserInput(msg,temp);
+								} catch (InvalidKeyException | NoSuchAlgorithmException
+										| NoSuchPaddingException
+										| IllegalBlockSizeException
+										| BadPaddingException | InvalidAlgorithmParameterException e) {
+									//NOTE: should only happen if user is malicious
+									writeErrorLog("Possible maliocious input from IP-address " + tcpSocket.getInetAddress());
+									skip = true;
+								}
+								
+							} catch (NoSuchAlgorithmException e1) {
+								writeErrorLog("server-host does not support necessary encryption-algorithms!");
+								skip = true;
+							} catch (NoSuchPaddingException e1) {
+								writeErrorLog("server-host has a problem with the padding:\n" + e1.getLocalizedMessage());
+								skip = true;
+							} catch (IllegalBlockSizeException e1) {
+								writeErrorLog("server-host has a problem with the block-size:\n" + e1.getLocalizedMessage());
+								skip = true;
+							} catch (BadPaddingException e1) {
+								e1.printStackTrace();
+								writeErrorLog("server-host has a problem with the padding of the input:\n" + e1.getLocalizedMessage());
+								skip = true;
+							} catch (InvalidAlgorithmParameterException e1) {
+								writeErrorLog("server-host has a problem with the iv:\n" + e1.getLocalizedMessage());
 								skip = true;
 							}
 							
-						} catch (NoSuchAlgorithmException e1) {
-							writeErrorLog("server-host does not support necessary encryption-algorithms!");
-							skip = true;
-						} catch (NoSuchPaddingException e1) {
-							writeErrorLog("server-host has a problem with the padding:\n" + e1.getLocalizedMessage());
-							skip = true;
-						} catch (IllegalBlockSizeException e1) {
-							writeErrorLog("server-host has a problem with the block-size:\n" + e1.getLocalizedMessage());
-							skip = true;
-						} catch (BadPaddingException e1) {
-							e1.printStackTrace();
-							writeErrorLog("server-host has a problem with the padding of the input:\n" + e1.getLocalizedMessage());
-							skip = true;
-						} catch (InvalidAlgorithmParameterException e1) {
-							writeErrorLog("server-host has a problem with the iv:\n" + e1.getLocalizedMessage());
-							skip = true;
-						}
-						
-						if( (message == null) && (skip == false) ){
-							skip = true;
-						}
-						
-						if(skip){
-							sendAnswer( Base64.encode(("!nok").getBytes()) );
-						}
-						
-						if(!skip){
+							if( (message == null) && (skip == false) ){
+								skip = true;
+							}
 							
-							try {
-								
-								//NOTE: handle client message
-								String answer = handleUserCommand(message);
-								
-								//NOTE: look if the answer is a response to server-challenge
-								if(answer.startsWith("[CHALLENGE]")){
-									String t = answer.substring(11);
-									if(!t.equals(serverChallenge)){
-										aes = null;
-										tcpSocket.close();
-									}
-									//NOTE: if challenge matches -> do nothing
-									answer = "!ok";
-								}
-								
-								//NOTE: if challenge has failed -> socket has been closed
-								if(!tcpSocket.isClosed()){
-									//NOTE: prepare message for sending (-> encrypt and base64 encode)
-									Encrypter enc = null;
-									if( (aes != null) && (doNotUse == false) ){
-										enc = aes.getKey();
-									}else{
-										doNotUse = false;
-										File fi = new File(pubKeyLocUser);
-										if(!fi.exists()){
-											answer = "!nok " + new String(Base64.encode(("Who are you, brah?(i have no recollection of you!)").getBytes()));
-										}else{
-											PublicKey pub = Keys.readPublicPEM(fi);
-											enc = new Encrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding", pub);
-										}
-									}
-									
-									//System.err.println(answer);
-									byte[] ans = encodeServerAnswer(answer,enc);
-									
-									//NOTE: send message
-									sendAnswer(ans);
-								}
-								
-							} catch (InvalidKeyException | NoSuchAlgorithmException
-									| NoSuchPaddingException
-									| IllegalBlockSizeException | BadPaddingException | InvalidAlgorithmParameterException e) {
-								writeErrorLog("Problem with encoding response for client:\n" + e.getLocalizedMessage());
+							if(skip){
 								sendAnswer( Base64.encode(("!nok").getBytes()) );
 							}
 							
+							if(!skip){
+								
+								try {
+									
+									//NOTE: handle client message
+									String answer = handleUserCommand(message);
+									
+									//NOTE: look if the answer is a response to server-challenge
+									if(answer.startsWith("[CHALLENGE]")){
+										String t = answer.substring(11);
+										if(!t.equals(serverChallenge)){
+											aes = null;
+											tcpSocket.close();
+										}
+										//NOTE: if challenge matches -> do nothing
+										this.user.setOnline();
+										info.setOnline(this.user.getUsername(), true);
+										answer = "!ok";
+									}
+									if(answer.equals("")){
+										skip = true;
+									}
+									
+									//NOTE: if challenge has failed -> socket has been closed
+									if( (!tcpSocket.isClosed()) && (!skip) ){
+										//NOTE: prepare message for sending (-> encrypt and base64 encode)
+										Encrypter enc = null;
+										if( (aes != null) && (doNotUse == false) ){
+											enc = aes.getKey();
+										}else{
+											doNotUse = false;
+											File fi = new File(pubKeyLocUser);
+											if(!fi.exists()){
+												answer = "!nok " + new String(Base64.encode(("Who are you, brah?(i have no recollection of you!)").getBytes()));
+											}else{
+												PublicKey pub = Keys.readPublicPEM(fi);
+												enc = new Encrypter("RSA/NONE/OAEPWithSHA256AndMGF1Padding", pub);
+											}
+										}
+										
+										if(answer.equals("User already in use!")){
+											answer = "!nok " + new String(Base64.encode(("User already in use!").getBytes()));
+										}
+										
+										//System.err.println(answer);
+										byte[] ans = encodeServerAnswer(answer,enc);
+										
+										//NOTE: send message
+										sendAnswer(ans);
+									}
+									
+								} catch (InvalidKeyException | NoSuchAlgorithmException
+										| NoSuchPaddingException
+										| IllegalBlockSizeException | BadPaddingException | InvalidAlgorithmParameterException e) {
+									writeErrorLog("Problem with encoding response for client:\n" + e.getLocalizedMessage());
+									sendAnswer( Base64.encode(("!nok").getBytes()) );
+								}
+								
+							}
+							
 						}
-						
-					}	
+					}
 				}
 				
 				//reader.close();
@@ -395,6 +406,8 @@ public class TCPListener implements Runnable {
 			
 			switch(command_split[0]){
 			case "!login":
+				retstring = "No longer supported! Use !authenticate instead.";
+				/*
 				retstring = "Wrong username or password.";
 				if(command_split.length == 3){
 					
@@ -408,7 +421,7 @@ public class TCPListener implements Runnable {
 							retstring = "Successfully logged in.";
 						}
 					}
-				}
+				}*/
 				break;
 			case "!authenticate":
 				//NOTE: only lab2
@@ -418,7 +431,11 @@ public class TCPListener implements Runnable {
 				}else{
 					//NOTE: prepare path to user-key
 					String user = new String(Base64.decode(command_split[1]));
+					this.user = new User(user,null);
 					pubKeyLocUser = pubKeyLoc + "/" + user + ".pub.pem";
+					if(info.isAuthenticated(user)){
+						return "User already in use!";
+					}
 					
 					//NOTE: prep message
 					retstring = "!ok ";
@@ -467,12 +484,14 @@ public class TCPListener implements Runnable {
 					retstring = "Must be logged in to do this.";
 					if(user != null && user.isOnline()){
 						user.setOffline();
+						info.setOnline(this.user.getUsername(), false);
 						retstring = "Successfully logged out.";
 					}
 				}
 				break;
 			case "!send":
 				retstring = "";
+				//System.out.println(command.substring(command.indexOf(" ")+1) + "::" + user.getUsername());
 				if(command_split.length > 1){
 					info.sendToAll(command.substring(command.indexOf(" ")+1), user);
 				}
@@ -568,12 +587,38 @@ public class TCPListener implements Runnable {
 	 * @throws IOException 
 	 */
 	public void sendMessage(String msg, User sender) throws IOException{
-		if(user != null && user.isOnline()){
-			if(!sender.getUsername().equals(user.getUsername())){
-				PrintWriter pw = new PrintWriter(tcpSocket.getOutputStream());
-				pw.println("[SPMP]" + sender.getUsername() + ": " + msg);
-				pw.flush();
-				//pw.close();
+		boolean test = (aes != null) && (user != null) && (user.isOnline());
+		System.out.println("TRUE? " + test);
+		if(aes != null){
+			if(user != null && user.isOnline()){
+				if(!sender.getUsername().equals(user.getUsername())){
+					try {
+						String m = sender.getUsername() + ":" + msg;
+						String temp = "";
+						for(String s : m.split(" ")){
+							temp += new String(Base64.encode(s.getBytes())) + " ";
+						}
+						byte[] cipher = aes.getKey().encrypt(temp);
+						String ans = "[SPMP]" + new String(cipher);
+						System.out.println("TO " + user.getUsername() + " MESSAGE: " + ans);
+						cipher = Base64.encode(ans.getBytes());
+						tcpSocket.getOutputStream().write(cipher);
+						tcpSocket.getOutputStream().flush();
+						
+					} catch (InvalidKeyException | NoSuchAlgorithmException
+							| NoSuchPaddingException
+							| IllegalBlockSizeException | BadPaddingException
+							| InvalidAlgorithmParameterException e) {
+						writeErrorLog("Problem with encoding response for client:\n" + e.getLocalizedMessage());
+						//sendAnswer( Base64.encode(("!nok").getBytes()) );
+					}
+					
+					/*
+					PrintWriter pw = new PrintWriter(tcpSocket.getOutputStream());
+					pw.println("[SPMP]" + sender.getUsername() + ": " + msg);
+					pw.flush();*/
+					//pw.close();
+				}
 			}
 		}
 	}
@@ -736,5 +781,9 @@ public class TCPListener implements Runnable {
 			}
 		}
 	}*/
+	
+	public String getUser(){
+		return this.user.getUsername();
+	}
 
 }

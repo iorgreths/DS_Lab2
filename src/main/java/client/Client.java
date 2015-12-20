@@ -106,23 +106,45 @@ public class Client implements IClientCli, Runnable {
 	@Override
 	@Command
 	public String login(String username, String password) throws IOException {
-		LinkedList<String> additionalParams = new LinkedList<String>();
+		return "Use !authenticate instead!";
+		/*LinkedList<String> additionalParams = new LinkedList<String>();
 		additionalParams.add(username);
 		additionalParams.add(password);
 		String answer = model.getServerCommunication().sendAndListen("!login", additionalParams);
 		if(answer.toLowerCase().contains("success")){
 			model.setOnline(true);
 		}
-		return answer;
+		return answer;*/
 	}
 
 	@Override
 	@Command
 	public String logout() throws IOException {
-		LinkedList<String> additionalParams = new LinkedList<String>();
-		String answer = model.getServerCommunication().sendAndListen("!logout", additionalParams);
-		if(answer.toLowerCase().contains("success")){
-			model.setOnline(false);
+		String answer = "";
+		if(aes != null){
+			LinkedList<String> additionalParams = new LinkedList<String>();
+			try{
+				answer = model.getServerCommunication().sendAndListen("!logout", additionalParams, aes.getKey(), aes.getValue());
+			} catch (NoSuchAlgorithmException e) {
+				return "The requested rsa-cipher is not supported!";
+			} catch (NoSuchPaddingException e) {
+				return "The requested padding for the rsa-cipher is not supported!";
+			} catch (IllegalBlockSizeException e) {
+				return "The block-size for the rsa-cipher is illegal!";
+			} catch (BadPaddingException e) {
+				return "Bad padding for encryption!";
+			} catch (InvalidKeyException e) {
+				e.printStackTrace();
+				return "The used key is invalid!";
+			} catch (InvalidAlgorithmParameterException e1) {
+				e1.printStackTrace();
+				return "Got an invalid iv from server!";
+			}
+			if(answer.toLowerCase().contains("success")){
+				model.setOnline(false);
+			}
+		}else{
+			answer = "Must first authenticate!";
 		}
 		return answer;
 	}
@@ -130,12 +152,32 @@ public class Client implements IClientCli, Runnable {
 	@Override
 	@Command
 	public String send(String message) throws IOException {
-		if(model.isOnline()){
-			LinkedList<String> additionalParams = new LinkedList<String>();
-			additionalParams.add(message);
-			return model.getServerCommunication().sendAndListen("!send", additionalParams);
+		if(aes != null){
+			if(model.isOnline()){
+				LinkedList<String> additionalParams = new LinkedList<String>();
+				additionalParams.add(message);
+				try {
+					return model.getServerCommunication().sendAndListen("!send", additionalParams, aes.getKey(), aes.getValue());
+				} catch (NoSuchAlgorithmException e) {
+					return "The requested rsa-cipher is not supported!";
+				} catch (NoSuchPaddingException e) {
+					return "The requested padding for the rsa-cipher is not supported!";
+				} catch (IllegalBlockSizeException e) {
+					return "The block-size for the rsa-cipher is illegal!";
+				} catch (BadPaddingException e) {
+					return "Bad padding for encryption!";
+				} catch (InvalidKeyException e) {
+					e.printStackTrace();
+					return "The used key is invalid!";
+				} catch (InvalidAlgorithmParameterException e1) {
+					e1.printStackTrace();
+					return "Got an invalid iv from server!";
+				}
+			}else{
+				return "Must be logged in to do this.";
+			}
 		}else{
-			return "Must be logged in to do this.";
+			return "Must be authenticated!";
 		}
 	}
 
@@ -164,34 +206,75 @@ public class Client implements IClientCli, Runnable {
 	@Override
 	@Command
 	public String lookup(String username) throws IOException {
-		if(model.isOnline()){
-			LinkedList<String> additionalParams = new LinkedList<String>();
-			additionalParams.add(username);
-			return model.getServerCommunication().sendAndListen("!lookup", additionalParams);
+		if(aes != null){
+			if(model.isOnline()){
+				LinkedList<String> additionalParams = new LinkedList<String>();
+				additionalParams.add(username);
+				try {
+					return model.getServerCommunication().sendAndListen("!lookup", additionalParams, aes.getKey(), aes.getValue());
+				} catch (NoSuchAlgorithmException e) {
+					return "The requested rsa-cipher is not supported!";
+				} catch (NoSuchPaddingException e) {
+					return "The requested padding for the rsa-cipher is not supported!";
+				} catch (IllegalBlockSizeException e) {
+					return "The block-size for the rsa-cipher is illegal!";
+				} catch (BadPaddingException e) {
+					return "Bad padding for encryption!";
+				} catch (InvalidKeyException e) {
+					e.printStackTrace();
+					return "The used key is invalid!";
+				} catch (InvalidAlgorithmParameterException e1) {
+					e1.printStackTrace();
+					return "Got an invalid iv from server!";
+				}
+			}else{
+				return "Must be logged in to do this.";
+			}
 		}else{
-			return "Must be logged in to do this.";
+			return "Must be authenticated!";
 		}
+		
 	}
 
 	@Override
 	@Command
 	public String register(String privateAddress) throws IOException {
-		if(model.isOnline()){
-			if(!ClientCommunication.validAddress(privateAddress)){
-				return "Invalid address.";
+		if(aes != null){
+			if(model.isOnline()){
+				if(!ClientCommunication.validAddress(privateAddress)){
+					return "Invalid address.";
+				}else{
+					ServerSocket socket = new ServerSocket(Integer.valueOf(privateAddress.split(":")[1]));
+					ClientCommunication cc = new ClientCommunication(model,socket,shelli);
+					model.addClientCommunication(cc);
+					Thread t = new Thread(cc);
+					t.start();
+					
+					LinkedList<String> additionalParams = new LinkedList<String>();
+					additionalParams.add(privateAddress);
+					try {
+						return model.getServerCommunication().sendAndListen("!register", additionalParams, aes.getKey(), aes.getValue());
+					} catch (NoSuchAlgorithmException e) {
+						return "The requested rsa-cipher is not supported!";
+					} catch (NoSuchPaddingException e) {
+						return "The requested padding for the rsa-cipher is not supported!";
+					} catch (IllegalBlockSizeException e) {
+						return "The block-size for the rsa-cipher is illegal!";
+					} catch (BadPaddingException e) {
+						return "Bad padding for encryption!";
+					} catch (InvalidKeyException e) {
+						e.printStackTrace();
+						return "The used key is invalid!";
+					} catch (InvalidAlgorithmParameterException e1) {
+						e1.printStackTrace();
+						return "Got an invalid iv from server!";
+					}
+				}
 			}else{
-				ServerSocket socket = new ServerSocket(Integer.valueOf(privateAddress.split(":")[1]));
-				ClientCommunication cc = new ClientCommunication(model,socket,shelli);
-				model.addClientCommunication(cc);
-				Thread t = new Thread(cc);
-				t.start();
-				
-				LinkedList<String> additionalParams = new LinkedList<String>();
-				additionalParams.add(privateAddress);
-				return model.getServerCommunication().sendAndListen("!register", additionalParams);
+				return "Must be logged in to do this.";
 			}
 		}else{
-			return "Must be logged in to do this.";
+			return "Must be authenticated!";
 		}
 	}
 	
@@ -245,7 +328,10 @@ public class Client implements IClientCli, Runnable {
 						
 			//NOTE: answer is MSG2 -> handle it
 			String[] msg_split = answer.split(" ");
-			if(msg_split.length != 5){
+			if( (msg_split.length != 5) ){
+				if(msg_split.length == 2){
+					return new String(Base64.decode(msg_split[1].getBytes()));
+				}
 				return "Invalid response from server, message not conform!";
 			}
 			if(!msg_split[0].equals("!ok")){
@@ -262,6 +348,7 @@ public class Client implements IClientCli, Runnable {
 			Encrypter e = new Encrypter(encoding,secret,iv);
 			Decrypter d = new Decrypter(encoding,secret,iv);
 			aes = new Pair<>(e,d);
+		    model.getServerCommunication().setPublicMessageDecrypter(aes.getValue());
 			
 			//NOTE send MSG3 to server
 			List<String> param = new LinkedList<>();
@@ -273,6 +360,7 @@ public class Client implements IClientCli, Runnable {
 			}else{
 				prepareAuthenticateMSG3(username,msg1[0],msg1[1]);
 			}*/
+			model.setOnline(true);
 			retval = "Successfully authenticated!";
 			
 		} catch (NoSuchAlgorithmException e) {
