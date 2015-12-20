@@ -50,16 +50,16 @@ public class NameserverRemote implements INameserver{
 			String last = username.substring(username.lastIndexOf(".")+1);
 			boolean found = false;
 			for(Entry<String,INameserver> e : myHandledRemotes.entrySet()){
+				//System.out.println("Zone: " + e.getKey());
 				if(e.getKey().equals(last)){
 					username = username.substring(0,username.lastIndexOf("."));
 					e.getValue().registerUser(username, address);
 					found = true;
 					break;
 				}
-				
-				if(!found){
-					throw new InvalidDomainException("There is no domain for this user: " + username);
-				}
+			}
+			if(!found){
+				throw new InvalidDomainException("There is no domain for this user: " + username);
 			}
 		}else{
 			//NOTE: add user to our domain, if we don`t have him already

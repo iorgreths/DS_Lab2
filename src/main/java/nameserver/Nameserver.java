@@ -27,7 +27,9 @@ public class Nameserver implements INameserverCli, Runnable{
 
 	private String componentName;
 	private Config config;
+	@SuppressWarnings("unused")
 	private InputStream userRequestStream;
+	@SuppressWarnings("unused")
 	private PrintStream userResponseStream;
 	
 	private Shell shelli;

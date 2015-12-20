@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 
+import util.HMacHandler;
 import cli.Shell;
 import model.ClientInfo;
 
@@ -13,11 +14,14 @@ public class ClientCommunication implements Runnable{
 	
 	private ServerSocket socket;
 	private Shell shell;
+	private HMacHandler hmacHandler;
 	
-	public ClientCommunication(ClientInfo info, ServerSocket socket, Shell shell){
+	public ClientCommunication(ClientInfo info, ServerSocket socket, Shell shell, HMacHandler hmacHandler){
 		this.info = info;
 		this.socket = socket;
 		this.shell = shell;
+		
+		this.hmacHandler = hmacHandler;
 		
 	}
 	
@@ -28,7 +32,7 @@ public class ClientCommunication implements Runnable{
 		while(running){
 			try {
 				Socket sock = socket.accept();
-				info.startClientListenerThread(new ClientListener(sock,shell));
+				info.startClientListenerThread(new ClientListener(sock,shell,hmacHandler));
 				
 			} catch (IOException e) {
 				if(socket.isClosed()){

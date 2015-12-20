@@ -8,9 +8,9 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
+import java.security.Key;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
@@ -19,7 +19,6 @@ import java.util.LinkedList;
 import java.util.List;
 
 import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
@@ -37,8 +36,8 @@ import client.udp.ServerCommunicationUDP;
 import util.Config;
 import util.Decrypter;
 import util.Encrypter;
+import util.HMacHandler;
 import util.Keys;
-import util.Message;
 import util.Pair;
 import util.Thirds;
 
@@ -55,6 +54,7 @@ public class Client implements IClientCli, Runnable {
 	private Shell shelli;
 	private ClientInfo model;
 	private Pair<Encrypter,Decrypter> aes;
+	private String username;
 
 	/**
 	 * @param componentName
@@ -155,7 +155,13 @@ public class Client implements IClientCli, Runnable {
 		if(aes != null){
 			if(model.isOnline()){
 				LinkedList<String> additionalParams = new LinkedList<String>();
-				additionalParams.add(message);
+				String send = "";
+				//message = message.replace(" ", "_");
+				for(String s : message.split(" ")){
+					byte[] b = Base64.encode(s.getBytes());
+					send = send + " " + new String(b);
+				}
+				additionalParams.add(send);
 				try {
 					return model.getServerCommunication().sendAndListen("!send", additionalParams, aes.getKey(), aes.getValue());
 				} catch (NoSuchAlgorithmException e) {
@@ -195,7 +201,19 @@ public class Client implements IClientCli, Runnable {
 			String address = lookup(username);
 			ret = address;
 			if(ClientCommunication.validAddress(address)){
-				ret = model.getClientSender().sendMessageToUser(username, address, message);
+				File skey = new File(config.getString("hmac.key"));
+				if(!skey.exists()){
+					return "No shared key!";
+				}
+				Key sec = Keys.readSecretKey(skey);
+				try {
+					//System.out.println("CLIENT: " + message);
+					ret = model.getClientSender().sendMessageToUser(username, address, "!msg " + this.username + ":" + message,new HMacHandler(sec));
+				} catch (InvalidKeyException e) {
+					return "Invalid key for hashing!";
+				} catch (NoSuchAlgorithmException e) {
+					return "Invalid algorithm for hashing!";
+				}
 			}
 			return ret;
 		}else{
@@ -244,8 +262,15 @@ public class Client implements IClientCli, Runnable {
 				if(!ClientCommunication.validAddress(privateAddress)){
 					return "Invalid address.";
 				}else{
+					
+					File skey = new File(config.getString("hmac.key"));
+					if(!skey.exists()){
+						return "No shared key!";
+					}
+					
 					ServerSocket socket = new ServerSocket(Integer.valueOf(privateAddress.split(":")[1]));
-					ClientCommunication cc = new ClientCommunication(model,socket,shelli);
+					Key sec = Keys.readSecretKey(skey);
+					ClientCommunication cc = new ClientCommunication(model,socket,shelli, new HMacHandler(sec));
 					model.addClientCommunication(cc);
 					Thread t = new Thread(cc);
 					t.start();
@@ -268,7 +293,9 @@ public class Client implements IClientCli, Runnable {
 					} catch (InvalidAlgorithmParameterException e1) {
 						e1.printStackTrace();
 						return "Got an invalid iv from server!";
+						
 					}
+					
 				}
 			}else{
 				return "Must be logged in to do this.";
@@ -361,6 +388,7 @@ public class Client implements IClientCli, Runnable {
 				prepareAuthenticateMSG3(username,msg1[0],msg1[1]);
 			}*/
 			model.setOnline(true);
+			this.username = username;
 			retval = "Successfully authenticated!";
 			
 		} catch (NoSuchAlgorithmException e) {
@@ -387,6 +415,7 @@ public class Client implements IClientCli, Runnable {
 	 * @param parts
 	 * @return
 	 */
+	/*
 	private byte[] createFullMessage(byte[][] parts){
 		int len = 0;
 		List<byte[]> partsEncoded = new LinkedList<byte[]>();
@@ -401,7 +430,7 @@ public class Client implements IClientCli, Runnable {
 			bb.put(b);
 		}
 		return retval;
-	}
+	}*/
 	
 	/**
 	 * Returns the {cipher,challenge} for this message.
@@ -485,6 +514,7 @@ public class Client implements IClientCli, Runnable {
 		return retlist;
 	}*/
 	
+	/*
 	private void prepareAuthenticateMSG3(String username, byte[] msg, byte[] challenge) throws IOException, NoSuchAlgorithmException, NoSuchPaddingException, IllegalBlockSizeException, BadPaddingException, InvalidKeyException{
 		//NOTE: character for separation of messages
 		char ch = 0;
@@ -518,6 +548,6 @@ public class Client implements IClientCli, Runnable {
 				System.out.println(s);
 			}
 		}
-	}
+	}*/
 
 }

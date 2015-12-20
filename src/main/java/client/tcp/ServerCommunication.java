@@ -11,13 +11,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.crypto.BadPaddingException;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.NoSuchPaddingException;
-import javax.crypto.SecretKey;
 
 import org.bouncycastle.util.encoders.Base64;
 
 import util.Decrypter;
 import util.Encrypter;
-import util.Message;
 import cli.Shell;
 
 /**
@@ -197,8 +195,6 @@ public class ServerCommunication implements Runnable{
 
 	@Override
 	public void run() {
-		//TODO add Decryptor functionality
-		// -> after authenticate works
 		
 		tcpThread = Thread.currentThread();
 		
@@ -221,7 +217,7 @@ public class ServerCommunication implements Runnable{
 						lastMessage = listener.readMessage();
 						shell.writeLine(lastMessage);
 					}*/
-					boolean test  =(!listener.isQueueEmptyBYTE()) && (pubDec != null);
+					//boolean test  =(!listener.isQueueEmptyBYTE()) && (pubDec != null);
 					
 					if( (!listener.isQueueEmptyBYTE()) ){
 						if( pubDec != null ){
@@ -231,8 +227,27 @@ public class ServerCommunication implements Runnable{
 								m = pubDec.decrypt(m);
 								String temp = new String(m);
 								String msg = "";
-								for(String s : temp.split(" ")){
-									msg += new String(Base64.decode(s)) + " ";
+								//System.out.println(temp);
+								//String[] te = temp.split(" ");
+								//System.out.println(te.length);
+								//byte[] b = Base64.decode(temp);
+								//System.out.println(new String(b));
+								//msg = new String(b);
+								//System.out.println(temp);
+								String[] split = temp.split(" ");
+								//System.out.println("INFO: " + split.length);
+								for(int i=0; i<split.length; i++){
+									//System.out.println("INFO-curr: " + i );
+									String s = split[i].replace(" ", "");
+									byte[] by;
+									if(s.length() > 0){
+										
+										by = Base64.decode(s);
+										//System.err.println("IN -" + s + "- -" + new String(by) + "-");
+										String innerTemp = new String(by);
+										//System.out.println("\nT:" + s);
+										msg += innerTemp + " ";
+									}
 								}
 								lastMessage = new String(msg);
 							} catch (NoSuchAlgorithmException e) {

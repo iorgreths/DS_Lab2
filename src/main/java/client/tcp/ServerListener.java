@@ -1,8 +1,6 @@
 package client.tcp;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayDeque;
@@ -20,7 +18,7 @@ public class ServerListener implements Runnable {
 
 	private Socket tcpSocket;
 	private Thread tcpThread;
-	private BufferedReader reader;
+	//private BufferedReader reader;
 	
 	private String message;
 	private Queue<String> pubmsg;
@@ -51,25 +49,31 @@ public class ServerListener implements Runnable {
 					byte[] msg = new byte[1024];
 					int len = tcpSocket.getInputStream().read(msg);
 					
-					byte[] message = new byte[len];
-					for(int i=0; i<len; i++){
-						message[i] = msg[i];
-					}
-					//NOTE: it's in base64
-					//System.out.println(message + ":" + message.length);
-					message = Base64.decode(message);
-					
-					String line = new String(message);
-					//System.out.println("INCOMING " + line);
-					if(line != null && line.startsWith("[SPMP]")){
-						line = line.substring(6);
-						//pubmsg.add(line);
-						System.out.println("ADDING PUBLIC MESSAGE TO BYTE QUEUE");
-						bpubmsg.add(line.getBytes());
-						System.out.println("B-QUEUE EMPTY? " + bpubmsg.isEmpty());
+					if(len > 0){
+						byte[] message = new byte[len];
+						for(int i=0; i<len; i++){
+							message[i] = msg[i];
+						}
+						//NOTE: it's in base64
+						//System.out.println(message + ":" + message.length);
+						message = Base64.decode(message);
+						
+						String line = new String(message);
+						//System.out.println("INCOMING " + line);
+						if(line != null && line.startsWith("[SPMP]")){
+							line = line.substring(6);
+							//pubmsg.add(line);
+							//System.out.println("ADDING PUBLIC MESSAGE TO BYTE QUEUE");
+							bpubmsg.add(line.getBytes());
+							//System.out.println("B-QUEUE EMPTY? " + bpubmsg.isEmpty());
+						}else{
+							//this.message = line;
+							this.bmessage = message;
+						}
 					}else{
-						//this.message = line;
-						this.bmessage = message;
+						if(tcpSocket.isClosed()){
+							running = false;
+						}
 					}
 					
 				}
@@ -157,7 +161,7 @@ public class ServerListener implements Runnable {
 	}
 	
 	public synchronized byte[] getOldestMessageBYTE(){
-		System.out.println("READING BYTES " + bpubmsg.peek());
+		//System.out.println("READING BYTES " + bpubmsg.peek());
 		return bpubmsg.poll();
 	}
 	

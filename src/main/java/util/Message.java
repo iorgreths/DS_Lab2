@@ -46,4 +46,12 @@ public class Message {
 		assert thirdMessage . matches ("["+ B64 +" ]{43}= ") : "3rd  message ";
 		
 	}
+	
+	public static void testHashMsg(String msg){
+		// --- stage III ---
+		// Private messages being exchanged between clients before the final Base64 encoding
+		String hashedMessage = msg;
+		assert hashedMessage . matches ("["+ B64 +" ]{43}=   [\\ s [^\\ s]]+ ");
+		System.err.println(hashedMessage.matches("["+ B64 +"]{43}= [\\s [^\\s]]+"));
+	}
 }

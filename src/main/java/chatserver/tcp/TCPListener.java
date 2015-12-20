@@ -3,13 +3,10 @@
  */
 package chatserver.tcp;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-import java.nio.ByteBuffer;
 import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
@@ -23,23 +20,18 @@ import java.security.SecureRandom;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
-import java.util.LinkedList;
-import java.util.List;
 
 import javax.crypto.BadPaddingException;
-import javax.crypto.Cipher;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 import org.bouncycastle.util.encoders.Base64;
 
 import util.Decrypter;
 import util.Encrypter;
 import util.Keys;
-import util.Message;
 import util.Pair;
 import nameserver.INameserver;
 import nameserver.exceptions.AlreadyRegisteredException;
@@ -73,13 +65,13 @@ public class TCPListener implements Runnable {
 
 	
 	//NOTE: secret key attemp
-	private SecretKey secretKey;
+	//private SecretKey secretKey;
 	private boolean doNotUse;
 	private byte[] iv;
 	private String serverChallenge;
 
 	//NOTE: shittybit
-	private String shittybit;
+	//private String shittybit;
 	
 	/**
 	 * 
@@ -99,13 +91,13 @@ public class TCPListener implements Runnable {
 		this.regPort = regPort;
 		this.rootID = rootID;
 		
-		secretKey = null;
+		//secretKey = null;
 		this.privKeyLoc = privKeyLoc;
 		this.pubKeyLoc = pubKeyLoc;
 		
 		//NOTE: character for separation of messages
-		char ch = 0;
-		shittybit = String.valueOf(ch);// + String.valueOf(ch);
+		//char ch = 0;
+		//shittybit = String.valueOf(ch);// + String.valueOf(ch);
 	}
 	
 	private void writeErrorLog(String errorMessage){
@@ -399,7 +391,6 @@ public class TCPListener implements Runnable {
 	 * @throws IllegalBlockSizeException 
 	 */
 	private String handleUserCommand(String command) throws NoSuchAlgorithmException, NoSuchPaddingException, IOException, InvalidKeyException, IllegalBlockSizeException, BadPaddingException{
-		//TODO after authenticate works -> update all commands (especially !send -> [SPMP] outside of encryption
 		String retstring = "Unknown command";
 		if(command.startsWith("!")){
 			String[] command_split = command.split(" ");
@@ -587,20 +578,20 @@ public class TCPListener implements Runnable {
 	 * @throws IOException 
 	 */
 	public void sendMessage(String msg, User sender) throws IOException{
-		boolean test = (aes != null) && (user != null) && (user.isOnline());
-		System.out.println("TRUE? " + test);
+		//boolean test = (aes != null) && (user != null) && (user.isOnline());
+		//System.out.println("TRUE? " + test);
 		if(aes != null){
 			if(user != null && user.isOnline()){
 				if(!sender.getUsername().equals(user.getUsername())){
 					try {
-						String m = sender.getUsername() + ":" + msg;
-						String temp = "";
-						for(String s : m.split(" ")){
+						String m = sender.getUsername() + ":";
+						String temp = new String(Base64.encode(m.getBytes())) + msg;
+						/*for(String s : m.split(" ")){
 							temp += new String(Base64.encode(s.getBytes())) + " ";
-						}
+						}*/
 						byte[] cipher = aes.getKey().encrypt(temp);
 						String ans = "[SPMP]" + new String(cipher);
-						System.out.println("TO " + user.getUsername() + " MESSAGE: " + ans);
+						//System.out.println("TO " + user.getUsername() + " MESSAGE: " + ans);
 						cipher = Base64.encode(ans.getBytes());
 						tcpSocket.getOutputStream().write(cipher);
 						tcpSocket.getOutputStream().flush();
@@ -681,7 +672,7 @@ public class TCPListener implements Runnable {
 							
 							//NOTE: handle message
 
-							//TODO
+							
 							System.out.println(message);
 							String[] command_split = Message.splitMessage(message);
 							command_split[0] = Message.removeShittyBit(command_split[0]);
@@ -723,7 +714,7 @@ public class TCPListener implements Runnable {
 							byte[] retbyte = createFullMessage(blist);
 							
 							//NOTE: do encryption
-							//TODO wrong key?
+						
 							File f = new File(pubKeyLoc + "/" + command_split[1] + ".pub.pem");
 							System.out.println(f.getAbsolutePath());
 							byte[] answer;
@@ -738,14 +729,14 @@ public class TCPListener implements Runnable {
 								answer = retbyte;
 							}
 							sendAnswer(answer);
-							//TODO
+							
 							
 						}
 						
 					} catch (InvalidKeyException | NoSuchAlgorithmException
 							| NoSuchPaddingException | IllegalBlockSizeException
 							| BadPaddingException e) {
-						// TODO Auto-generated catch block
+				
 						e.printStackTrace();
 					}
 				}
